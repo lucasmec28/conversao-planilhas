@@ -35,6 +35,47 @@ def _status_level(processed: ProcessedData) -> str:
     return "OK"
 
 
+def _same_value(a, b) -> bool:
+    """Comparison used only for presentation merges."""
+    if a is None and b is None:
+        return True
+    return str(a) == str(b)
+
+
+def _merge_runs(rows: Sequence[Sequence[object]], col: int, parent_cols: Sequence[int] = ()) -> List[tuple[int, int, object]]:
+    """Return inclusive row-index spans for sequential equal categorical values.
+
+    parent_cols constrains the merge so a child field (e.g. Grupo) never crosses
+    the boundary of a parent field (e.g. Base/nó).
+    """
+    spans: List[tuple[int, int, object]] = []
+    if not rows:
+        return spans
+
+    start = 0
+    for i in range(1, len(rows) + 1):
+        same = False
+        if i < len(rows):
+            same = _same_value(rows[i][col], rows[i - 1][col])
+            if same and parent_cols:
+                same = all(_same_value(rows[i][pc], rows[i - 1][pc]) for pc in parent_cols)
+        if not same:
+            if i - start >= 2:
+                spans.append((start, i - 1, rows[start][col]))
+            start = i
+    return spans
+
+
+def _scale_widths(widths_cm: Sequence[float], max_total_cm: float = 18.8) -> List[float]:
+    total = float(sum(widths_cm))
+    if total <= 0:
+        return list(widths_cm)
+    if total <= max_total_cm:
+        return list(widths_cm)
+    factor = max_total_cm / total
+    return [w * factor for w in widths_cm]
+
+
 def build_excel(
     processed: ProcessedData,
     mappings: Sequence[CaseMapping],
@@ -130,7 +171,15 @@ def build_excel(
         ws.write(r, 2, item.abbreviation, fmt_body)
         ws.write(r, 3, "Sim" if item.include_reactions else "Não", fmt_body)
 
-    def add_table_sheet(name: str, title: str, headers: List[str], rows: List[List[object]], widths: List[float], left_cols=()):
+    def add_table_sheet(
+        name: str,
+        title: str,
+        headers: List[str],
+        rows: List[List[object]],
+        widths: List[float],
+        left_cols=(),
+        merge_specs: Sequence[tuple[int, Sequence[int]]] = (),
+    ):
         sheet = wb.add_worksheet(name)
         sheet.hide_gridlines(2)
         last_col = len(headers) - 1
@@ -147,11 +196,23 @@ def build_excel(
                 elif isinstance(value, str) and value.upper() == "NÃO OK":
                     fmt = fmt_bad
                 sheet.write(ri, ci, value, fmt)
+
+        # Merge only categorical/identifier columns. Result columns (ratios,
+        # forces, moments, cases and status) are deliberately never merged.
+        # Data rows start at Excel row index 3 (zero-based).
+        for col, parent_cols in merge_specs:
+            for start, end, value in _merge_runs(rows, col, parent_cols):
+                first_excel_row = 3 + start
+                last_excel_row = 3 + end
+                fmt = fmt_body_left if col in left_cols else fmt_body
+                sheet.merge_range(first_excel_row, col, last_excel_row, col, value, fmt)
+
         for ci, width in enumerate(widths):
             sheet.set_column(ci, ci, width)
         sheet.freeze_panes(3, 0)
         sheet.repeat_rows(0, 2)
-        sheet.set_landscape() if len(headers) >= 8 else sheet.set_portrait()
+        # All sheets use portrait orientation, matching the Word deliverable.
+        sheet.set_portrait()
         sheet.fit_to_pages(1, 0)
         sheet.set_margins(0.35, 0.35, 0.45, 0.45)
         return sheet
@@ -171,18 +232,21 @@ def build_excel(
         ["Membro", "Perfil", "Material", "Lay", "Laz", "Índice ELU", "Caso", "Status Tensão", "Status Esbeltez"],
         processed.table8,
         [25, 18, 21, 10, 10, 12, 20, 15, 17], left_cols=(0, 1, 2),
+        merge_specs=((1, ()), (2, ())),
     )
     add_table_sheet(
         "TABELA_9_ELS", f"Tabela 9 - Deslocamento Eletrônico - {processed.summary['structure_name']}",
         ["Membro", "Perfil", "Ratio (uy)", "Caso (uy)", "Ratio (uz)", "Caso (uz)", "Ratio (vx)", "Caso (vx)", "Ratio (vy)", "Caso (vy)", "Status Flecha"],
         processed.table9,
         [24, 18, 11, 18, 11, 18, 11, 18, 11, 18, 14], left_cols=(0, 1),
+        merge_specs=((1, ()),),
     )
     add_table_sheet(
         "TABELA_10_REACOES", f"Tabela 10 - Reações nos apoios - {processed.summary['structure_name']}",
         ["Base/nó", "Grupo", "Carregamento", "Fx (kN)", "Fy (kN)", "Fz (kN)", "Mx (kN·m)", "My (kN·m)", "Mz (kN·m)"],
         processed.table10,
         [10, 10, 28, 12, 12, 12, 13, 13, 13], left_cols=(2,),
+        merge_specs=((0, ()), (1, (0,))),
     )
 
     # VALIDAÇÕES
@@ -254,6 +318,39 @@ def _set_cell_width(cell, width_cm: float) -> None:
     tc_w.set(qn("w:w"), str(int(Cm(width_cm).twips)))
 
 
+def _set_table_width_percent(table, percent: int = 100) -> None:
+    """Equivalent to Word's 'AutoFit to Window' for the generated table."""
+    tbl_pr = table._tbl.tblPr
+    tbl_w = tbl_pr.find(qn("w:tblW"))
+    if tbl_w is None:
+        tbl_w = OxmlElement("w:tblW")
+        tbl_pr.append(tbl_w)
+    tbl_w.set(qn("w:type"), "pct")
+    tbl_w.set(qn("w:w"), str(int(percent * 50)))  # 5000 = 100%
+
+    layout = tbl_pr.find(qn("w:tblLayout"))
+    if layout is None:
+        layout = OxmlElement("w:tblLayout")
+        tbl_pr.append(layout)
+    layout.set(qn("w:type"), "autofit")
+
+
+def _merge_word_vertical(
+    table,
+    rows: Sequence[Sequence[object]],
+    col: int,
+    parent_cols: Sequence[int],
+    font_size: float,
+    align,
+) -> None:
+    # +1 because Word table row 0 is the header.
+    for start, end, value in _merge_runs(rows, col, parent_cols):
+        top = table.cell(start + 1, col)
+        bottom = table.cell(end + 1, col)
+        merged = top.merge(bottom)
+        _write_cell(merged, _format_value(value), font_size, align=align)
+
+
 def _set_repeat_table_header(row) -> None:
     tr_pr = row._tr.get_or_add_trPr()
     tbl_header = OxmlElement("w:tblHeader")
@@ -322,19 +419,22 @@ def _add_word_table(
     widths_cm: Sequence[float],
     font_size: float,
     left_cols: Sequence[int] = (),
+    merge_specs: Sequence[tuple[int, Sequence[int]]] = (),
 ) -> None:
     _add_title(doc, title)
     table = doc.add_table(rows=1, cols=len(headers))
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = "Table Grid"
-    table.autofit = False
+    table.autofit = True
+    _set_table_width_percent(table, 100)
+    fitted_widths = _scale_widths(widths_cm, 18.8)
 
     hdr = table.rows[0]
     _set_repeat_table_header(hdr)
     _set_row_no_split(hdr)
     for j, h in enumerate(headers):
         cell = hdr.cells[j]
-        _set_cell_width(cell, widths_cm[j])
+        _set_cell_width(cell, fitted_widths[j])
         _set_cell_shading(cell, DARK)
         _write_cell(cell, h, font_size, bold=True, color=PINK)
 
@@ -343,7 +443,7 @@ def _add_word_table(
         _set_row_no_split(row)
         for j, value in enumerate(row_data):
             cell = row.cells[j]
-            _set_cell_width(cell, widths_cm[j])
+            _set_cell_width(cell, fitted_widths[j])
             text = _format_value(value)
             align = WD_ALIGN_PARAGRAPH.LEFT if j in left_cols else WD_ALIGN_PARAGRAPH.CENTER
             _write_cell(cell, text, font_size, align=align)
@@ -358,12 +458,17 @@ def _add_word_table(
                     run.font.color.rgb = RGBColor.from_string(RED_TXT.replace("#", ""))
                     run.bold = True
 
+    for col, parent_cols in merge_specs:
+        align = WD_ALIGN_PARAGRAPH.LEFT if col in left_cols else WD_ALIGN_PARAGRAPH.CENTER
+        _merge_word_vertical(table, rows, col, parent_cols, font_size, align)
+
     doc.add_paragraph().paragraph_format.space_after = Pt(0)
 
 
-def _new_section(doc: Document, landscape: bool):
+def _new_section(doc: Document, landscape: bool = False):
+    # Kept as a helper for pagination, but all generated pages are portrait.
     section = doc.add_section(WD_SECTION.NEW_PAGE)
-    _configure_section(section, landscape)
+    _configure_section(section, landscape=False)
     return section
 
 
@@ -430,37 +535,40 @@ def build_word(processed: ProcessedData, mappings: Sequence[CaseMapping], input_
         left_cols=(0, 1),
     )
 
-    _new_section(doc, landscape=True)
+    _new_section(doc, landscape=False)
     _add_word_table(
         doc,
         f"Tabela 8 - Dimensionamento Eletrônico / Aproveitamento dos Membros - {processed.summary['structure_name']}",
         ["Membro", "Perfil", "Material", "Lay", "Laz", "Índice ELU", "Caso", "Status Tensão", "Status Esbeltez"],
         processed.table8,
         [4.0, 3.0, 3.3, 1.5, 1.5, 1.8, 3.0, 2.4, 2.6],
-        7.2,
+        6.3,
         left_cols=(0, 1, 2),
+        merge_specs=((1, ()), (2, ())),
     )
 
-    _new_section(doc, landscape=True)
+    _new_section(doc, landscape=False)
     _add_word_table(
         doc,
         f"Tabela 9 - Deslocamento Eletrônico - {processed.summary['structure_name']}",
         ["Membro", "Perfil", "Ratio (uy)", "Caso (uy)", "Ratio (uz)", "Caso (uz)", "Ratio (vx)", "Caso (vx)", "Ratio (vy)", "Caso (vy)", "Status Flecha"],
         processed.table9,
         [3.2, 2.4, 1.4, 2.3, 1.4, 2.3, 1.4, 2.3, 1.4, 2.3, 1.8],
-        6.5,
+        5.5,
         left_cols=(0, 1),
+        merge_specs=((1, ()),),
     )
 
-    _new_section(doc, landscape=True)
+    _new_section(doc, landscape=False)
     _add_word_table(
         doc,
         f"Tabela 10 - Reações nos apoios - {processed.summary['structure_name']}",
         ["Base/nó", "Grupo", "Carregamento", "Fx (kN)", "Fy (kN)", "Fz (kN)", "Mx (kN·m)", "My (kN·m)", "Mz (kN·m)"],
         processed.table10,
         [1.6, 1.5, 5.0, 2.2, 2.2, 2.2, 2.5, 2.5, 2.5],
-        7.0,
+        6.0,
         left_cols=(2,),
+        merge_specs=((0, ()), (1, (0,))),
     )
 
     bio = BytesIO()

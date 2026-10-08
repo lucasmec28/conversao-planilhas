@@ -18,7 +18,7 @@ from core import (
 from exporters import build_excel, build_word
 
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 BASE_DIR = Path(__file__).resolve().parent
 ASSET_EXAMPLE = BASE_DIR / "assets" / "exemplo_resultados_elu_els.png"
 

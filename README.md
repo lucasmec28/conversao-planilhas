@@ -74,3 +74,11 @@ A interface mantém escondidas em um `expander` as opções menos usadas:
 - O limite de esbeltez é global na V1. Para membros exclusivamente tracionados que devam usar outro limite, a evolução natural é permitir regra por grupo/membro.
 - A Tabela 9 usa as proporções ELS fornecidas pelo próprio Robot; membros sem qualquer resultado ELS são omitidos.
 - As reações exportadas no quadro final são apenas dos casos básicos selecionados pelo usuário; combinações marcadas pelo Robot com `(C)` não entram no quadro nominal.
+
+
+## Formatação de saída (v1.1)
+- Fonte: Times New Roman.
+- Todas as páginas do Word são A4 retrato.
+- As tabelas são ajustadas automaticamente a 100% da largura útil da página.
+- Células categóricas repetidas em sequência são mescladas quando isso preserva o significado da tabela.
+- Resultados numéricos, casos críticos e status não são mesclados.

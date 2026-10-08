@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0
+- Word gerado integralmente em A4 retrato.
+- Tabelas do Word configuradas em 100% da largura útil da página (equivalente a “Ajustar à largura da janela”).
+- Mesclagem automática de valores categóricos iguais e sequenciais nas tabelas de saída.
+- Tabela 8: mescla Perfil e Material quando repetidos sequencialmente.
+- Tabela 9: mescla Perfil quando repetido sequencialmente.
+- Tabela 10: mescla Base/nó e Grupo; Grupo é mesclado somente dentro da mesma Base/nó.
+- Colunas de resultados (índices, casos, forças, momentos e status) nunca são mescladas.
+- Planilhas Excel também passam a usar orientação retrato para impressão.
+
+
 ## 1.0.0
 
 - Upload independente de CSV de combinações, CSV de reações e Excel ELU/ELS.
