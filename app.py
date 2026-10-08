@@ -18,7 +18,7 @@ from core import (
 from exporters import build_excel, build_word
 
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 BASE_DIR = Path(__file__).resolve().parent
 ASSET_EXAMPLE = BASE_DIR / "assets" / "exemplo_resultados_elu_els.png"
 
@@ -113,14 +113,16 @@ if parsed:
         )
     with right:
         st.info(
-            "Os números dos casos não são fixos. Confirme o nome e a abreviação de cada caso detectado. "
-            "É esse mapeamento que será usado para traduzir as combinações e nomear as reações."
+            "Os números dos casos não são fixos. Defina também o grupo de cada caso. "
+            "Casos mutuamente exclusivos podem compartilhar o mesmo grupo; esse valor será usado na Tabela 10 de reações. "
+            "Confirme ainda o nome, a abreviação e se o caso deve entrar no quadro de reações."
         )
 
     default_map = pd.DataFrame(
         [
             {
                 "Caso Robot": cid,
+                "Grupo": str(cid),
                 "Carregamento": f"CASO {cid}",
                 "Abreviação": f"C{cid}",
                 "Incluir nas reações": True,
@@ -135,6 +137,11 @@ if parsed:
         disabled=["Caso Robot"],
         column_config={
             "Caso Robot": st.column_config.NumberColumn("Caso Robot", format="%d"),
+            "Grupo": st.column_config.TextColumn(
+                "Grupo",
+                help="Grupo usado no quadro de reações. Casos mutuamente exclusivos podem receber o mesmo grupo.",
+                required=True,
+            ),
             "Carregamento": st.column_config.TextColumn("Carregamento", help="Ex.: PESO PRÓPRIO, TEMPERATURA +20°C"),
             "Abreviação": st.column_config.TextColumn("Abreviação", help="Ex.: PP, CP, SC, T+°C"),
             "Incluir nas reações": st.column_config.CheckboxColumn("Incluir nas reações"),
@@ -148,6 +155,7 @@ if parsed:
             load_name=str(row["Carregamento"] or "").strip(),
             abbreviation=str(row["Abreviação"] or "").strip(),
             include_reactions=bool(row["Incluir nas reações"]),
+            group=str(row["Grupo"] or "").strip(),
         )
         for _, row in edited_map.iterrows()
     ]

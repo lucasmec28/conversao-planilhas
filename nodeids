@@ -1,0 +1,5 @@
+[
+  "tests/test_core.py::test_translate_grouped_combination",
+  "tests/test_grouping.py::test_case_mapping_keeps_editable_group",
+  "tests/test_grouping.py::test_table10_uses_mapping_group"
+]

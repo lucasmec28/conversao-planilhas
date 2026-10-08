@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+- Restaura o campo editável **Grupo** no mapeamento dos casos.
+- Tabela de reações passa a usar o grupo definido pelo usuário.
+- Mesclagem restrita à Tabela 10: Base/nó e Grupo.
+- Mantém todas as páginas do Word em A4 retrato e tabelas ajustadas à largura útil.
+
+# Changelog
+
 ## 1.1.0
 - Word gerado integralmente em A4 retrato.
 - Tabelas do Word configuradas em 100% da largura útil da página (equivalente a “Ajustar à largura da janela”).

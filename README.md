@@ -76,9 +76,16 @@ A interface mantém escondidas em um `expander` as opções menos usadas:
 - As reações exportadas no quadro final são apenas dos casos básicos selecionados pelo usuário; combinações marcadas pelo Robot com `(C)` não entram no quadro nominal.
 
 
-## Formatação de saída (v1.1)
+## Formatação de saída (v1.2)
 - Fonte: Times New Roman.
 - Todas as páginas do Word são A4 retrato.
 - As tabelas são ajustadas automaticamente a 100% da largura útil da página.
 - Células categóricas repetidas em sequência são mescladas quando isso preserva o significado da tabela.
 - Resultados numéricos, casos críticos e status não são mesclados.
+
+
+## Ajustes v1.2
+- Campo **Grupo** voltou ao mapeamento e permanece editável por caso.
+- A Tabela 10 usa o grupo informado, permitindo agrupar casos mutuamente exclusivos.
+- Mesclagem aplicada **somente** à Tabela 10 (reações): Base/nó e Grupo, sempre em valores iguais e sequenciais.
+- Forças, momentos, carregamentos, casos e demais tabelas não são mesclados.

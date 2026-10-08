@@ -60,6 +60,7 @@ class CaseMapping:
     load_name: str
     abbreviation: str
     include_reactions: bool = True
+    group: str = ""
 
 
 @dataclass
@@ -541,9 +542,10 @@ def process_data(
             continue
         mp = mapping.get(r.case_id)
         load_name = mp.load_name.strip() if mp and mp.load_name.strip() else f"CASO {r.case_id}"
+        group = mp.group.strip() if mp and str(mp.group).strip() else str(r.case_id)
         table10.append([
             r.node,
-            r.case_id,
+            group,
             load_name,
             r.fx * force_conversion_factor,
             r.fy * force_conversion_factor,
@@ -552,7 +554,14 @@ def process_data(
             r.my * moment_conversion_factor,
             r.mz * moment_conversion_factor,
         ])
-    table10.sort(key=lambda x: (x[0], x[1]))
+    def _group_sort_key(value: object):
+        text = str(value).strip()
+        try:
+            return (0, float(text))
+        except ValueError:
+            return (1, text.casefold())
+
+    table10.sort(key=lambda x: (x[0], _group_sort_key(x[1]), x[2].casefold()))
 
     nodes = sorted({r.node for r in reactions if not r.is_combination})
     if not comb_elu:

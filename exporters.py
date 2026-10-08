@@ -136,7 +136,10 @@ def build_excel(
     ws = wb.add_worksheet("RESUMO")
     ws.hide_gridlines(2)
     ws.set_column("A:A", 28)
-    ws.set_column("B:B", 64)
+    ws.set_column("B:B", 22)
+    ws.set_column("C:C", 36)
+    ws.set_column("D:D", 16)
+    ws.set_column("E:E", 20)
     ws.merge_range("A1:B1", "GERADOR DE TABELAS - ROBOT STRUCTURAL ANALYSIS", fmt_title)
     ws.write("A3", "Estrutura", fmt_label)
     ws.write("B3", processed.summary.get("structure_name", ""), fmt_text)
@@ -164,12 +167,13 @@ def build_excel(
         ws.write(i - 1, 0, label, fmt_label)
         ws.write(i - 1, 1, val, fmt_text)
     ws.write(24, 0, "MAPEAMENTO DE CASOS", fmt_section)
-    ws.write_row(25, 0, ["Caso Robot", "Carregamento", "Abreviação", "Incluir nas reações"], fmt_header)
+    ws.write_row(25, 0, ["Caso Robot", "Grupo", "Carregamento", "Abreviação", "Incluir nas reações"], fmt_header)
     for r, item in enumerate(sorted(mappings, key=lambda x: x.case_id), 26):
         ws.write(r, 0, item.case_id, fmt_body)
-        ws.write(r, 1, item.load_name, fmt_body_left)
-        ws.write(r, 2, item.abbreviation, fmt_body)
-        ws.write(r, 3, "Sim" if item.include_reactions else "Não", fmt_body)
+        ws.write(r, 1, item.group if str(item.group).strip() else str(item.case_id), fmt_body)
+        ws.write(r, 2, item.load_name, fmt_body_left)
+        ws.write(r, 3, item.abbreviation, fmt_body)
+        ws.write(r, 4, "Sim" if item.include_reactions else "Não", fmt_body)
 
     def add_table_sheet(
         name: str,
@@ -232,14 +236,12 @@ def build_excel(
         ["Membro", "Perfil", "Material", "Lay", "Laz", "Índice ELU", "Caso", "Status Tensão", "Status Esbeltez"],
         processed.table8,
         [25, 18, 21, 10, 10, 12, 20, 15, 17], left_cols=(0, 1, 2),
-        merge_specs=((1, ()), (2, ())),
     )
     add_table_sheet(
         "TABELA_9_ELS", f"Tabela 9 - Deslocamento Eletrônico - {processed.summary['structure_name']}",
         ["Membro", "Perfil", "Ratio (uy)", "Caso (uy)", "Ratio (uz)", "Caso (uz)", "Ratio (vx)", "Caso (vx)", "Ratio (vy)", "Caso (vy)", "Status Flecha"],
         processed.table9,
         [24, 18, 11, 18, 11, 18, 11, 18, 11, 18, 14], left_cols=(0, 1),
-        merge_specs=((1, ()),),
     )
     add_table_sheet(
         "TABELA_10_REACOES", f"Tabela 10 - Reações nos apoios - {processed.summary['structure_name']}",
@@ -544,7 +546,6 @@ def build_word(processed: ProcessedData, mappings: Sequence[CaseMapping], input_
         [4.0, 3.0, 3.3, 1.5, 1.5, 1.8, 3.0, 2.4, 2.6],
         6.3,
         left_cols=(0, 1, 2),
-        merge_specs=((1, ()), (2, ())),
     )
 
     _new_section(doc, landscape=False)
@@ -556,7 +557,6 @@ def build_word(processed: ProcessedData, mappings: Sequence[CaseMapping], input_
         [3.2, 2.4, 1.4, 2.3, 1.4, 2.3, 1.4, 2.3, 1.4, 2.3, 1.8],
         5.5,
         left_cols=(0, 1),
-        merge_specs=((1, ()),),
     )
 
     _new_section(doc, landscape=False)
